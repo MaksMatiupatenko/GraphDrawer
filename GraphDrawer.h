@@ -4,6 +4,7 @@
 #include <iostream>
 
 namespace gdraw {
+	// тут надо поставить путь до папки в которой отрисовщик лежит \\GraphLog.txt
 	std::ofstream fout("C:\\Users\\Galina\\Desktop\\прг\\что-то\\GraphDrawer\\ivan\\GraphLog.txt");
 
 	int actCnt = 1;
