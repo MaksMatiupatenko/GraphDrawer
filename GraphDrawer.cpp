@@ -33,6 +33,7 @@ private:
 	sf::Vector2f velocity;
 	sf::Font font;
 	std::string str;
+	float scale = 1;
 
 	friend class Edge;
 
@@ -68,7 +69,8 @@ public:
 
 	void interact(Node& other, float time) {
 		float d = length(pos - other.pos);
-		d /= 50;
+		d /= scale;
+		d /= 100;
 		if (d > 0) {
 			velocity += (pos - other.pos) / d * (force / d) * time;
 			other.velocity += (other.pos - pos) / d * (force / d) * time;
@@ -89,7 +91,7 @@ public:
 			velocity.y -= (pos.y - boardSize.y + boardOffset.y) * (pos.y - boardSize.y + boardOffset.y) * force * time * 4.f;
 		}
 
-		velocity -= (pos - boardSize / 2.0f) * force / 3.0f * time;
+		velocity -= (pos - boardSize / 2.0f) / scale * force / 3.0f * time;
 
 		pos += velocity * time;
 		velocity *= exp(-time);
@@ -115,6 +117,9 @@ public:
 	}
 	void setString(const std::string& text) {
 		str = text;
+	}
+	void setScale(float sc) {
+		scale = sc;
 	}
 
 	bool isContains(const sf::Vector2f& point) {
@@ -293,19 +298,23 @@ public:
 
 		int n, m;
 		is >> n >> m;
-		float scale = std::min(20.f / n, 1.f);
+		float scale = 1.f;
+		if (n != 0) {
+			scale = std::min(20.f / n, 1.f);
+		}
 		for (int i = 0; i < n; ++i) {
 			Node nd;
 
 			nd.setPos({
 				rnd01() * (boardSize.x - 2 * boardOffset.x) + boardOffset.x,
 				rnd01() * (boardSize.y - 2 * boardOffset.y) + boardOffset.y });
-			nd.setSize(26 * scale);
+			nd.setSize(std::max(26 * scale, 9.f));
 			nd.setFillColor({ 50, 50, 50 });
-			nd.setOutlineSize(4 * scale);
+			nd.setOutlineSize(std::max(4 * scale, 1.f));
 			nd.setOutlineColor({ 255, 255, 255 });
 			nd.setFont(graph.font);
 			nd.setString(std::to_string(i + 1));
+			nd.setScale(sqrt(scale));
 
 			graph.node.push_back(new Node(nd));
 		}
