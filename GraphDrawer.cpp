@@ -1,4 +1,5 @@
-﻿#define SFML_STATIC
+
+#define SFML_STATIC
 
 #include <SFML/Graphics.hpp>
 #include <fstream>
@@ -146,29 +147,34 @@ private:
 	sf::Color col;
 	float size = 0;
 	float optLen = 0;
+	bool alive = true;
 
 public:
 	void interact(float time) {
-		float d0 = length(nd1->pos - nd2->pos);
-		float d = d0 - optLen;
-		nd1->velocity += ((nd2->pos - nd1->pos) / d0) * force * time * d;
-		nd2->velocity += ((nd1->pos - nd2->pos) / d0) * force * time * d;
+		if (alive) {
+			float d0 = length(nd1->pos - nd2->pos);
+			float d = d0 - optLen;
+			nd1->velocity += ((nd2->pos - nd1->pos) / d0) * force * time * d;
+			nd2->velocity += ((nd1->pos - nd2->pos) / d0) * force * time * d;
+		}
 	}
 
 	void draw(sf::RenderTarget& window, sf::RenderStates states) const {
-		sf::Vector2f vec = nd1->pos - nd2->pos;
-		vec /= length(vec);
-		vec = sf::Vector2f(-vec.y, vec.x);
+		if (alive) {
+			sf::Vector2f vec = nd1->pos - nd2->pos;
+			vec /= length(vec);
+			vec = sf::Vector2f(-vec.y, vec.x);
 
-		sf::ConvexShape shape;
-		shape.setPointCount(4);
-		shape.setPoint(0, nd1->pos + vec * size);
-		shape.setPoint(1, nd1->pos - vec * size);
-		shape.setPoint(2, nd2->pos - vec * size);
-		shape.setPoint(3, nd2->pos + vec * size);
-		shape.setFillColor(col);
+			sf::ConvexShape shape;
+			shape.setPointCount(4);
+			shape.setPoint(0, nd1->pos + vec * size);
+			shape.setPoint(1, nd1->pos - vec * size);
+			shape.setPoint(2, nd2->pos - vec * size);
+			shape.setPoint(3, nd2->pos + vec * size);
+			shape.setFillColor(col);
 
-		window.draw(shape, states);
+			window.draw(shape, states);
+		}
 	}
 
 	void setFirstNode(Node* nd) {
@@ -186,6 +192,9 @@ public:
 	void setOptLen(float ln) {
 		optLen = ln;
 	}
+	void setAlive(bool _alive) {
+		alive = _alive;
+	}
 
 	sf::Color getColor() {
 		return col;
@@ -194,6 +203,8 @@ public:
 
 class Graph : public sf::Drawable {
 private:
+	float scale;
+
 	std::vector <Node*> node;
 	std::vector <Edge*> edge;
 	sf::Font font;
@@ -219,6 +230,16 @@ private:
 			ss >> v;
 			ans = "ec " + std::to_string(v) + ' ';
 			ans += std::to_string(edge[(long long)v - 1]->getColor().toInteger());
+		}
+		if (type == "ea") {
+			int u, v;
+			ss >> u >> v;
+			ans = "popEdge " + std::to_string(v) + ' ';
+		}
+		if (type == "ed") {
+			int eg;
+			ss >> eg;
+			ans = "setAliveTrue " + std::to_string(eg) + ' ';
 		}
 
 		return ans;
@@ -258,6 +279,33 @@ private:
 			unsigned int col;
 			ss >> col;
 			edge[(long long)v - 1]->setColor(sf::Color(col));
+		}
+		if (type == "ea") {
+			int u, v;
+			ss >> u >> v;
+			--u; --v;
+			Edge eg;
+			eg.setFirstNode(node[u]);
+			eg.setSecondNode(node[v]);
+
+			eg.setSize(3 * scale);
+			eg.setOptLen(200 * scale);
+			eg.setColor({ 100, 100, 100 });
+
+			edge.push_back(new Edge(eg));
+		}
+		if (type == "ed") {
+			int eg;
+			ss >> eg;
+			edge[(long long)eg - 1]->setAlive(false);
+		}
+		if (type == "popEdge") {
+			edge.pop_back();
+		}
+		if (type == "setAliveTrue") {
+			int eg;
+			ss >> eg;
+			edge[(long long)eg - 1]->setAlive(true);
 		}
 	}
 
@@ -302,6 +350,7 @@ public:
 		if (n != 0) {
 			scale = std::min(20.f / n, 1.f);
 		}
+		graph.scale = scale;
 		for (int i = 0; i < n; ++i) {
 			Node nd;
 
@@ -438,6 +487,13 @@ int main() {
 				if (event.key.code == sf::Keyboard::Left) {
 					graph.prevAction();
 				}
+				if (event.key.code == sf::Keyboard::F12) {
+					sf::Texture tex;
+					tex.create(1920, 1080);
+					tex.update(window);
+					sf::Image im = tex.copyToImage();
+					im.saveToFile("iovsivosnv.png");
+				}
 			}
 		}
 
@@ -448,7 +504,7 @@ int main() {
 			toMove->clearVelocity();
 		}
 
-		window.clear();
+		window.clear(sf::Color(0, 0, 0, 0));
 		window.draw(graph);
 		window.display();
 	}
