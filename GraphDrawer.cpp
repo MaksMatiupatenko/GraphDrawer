@@ -1,4 +1,3 @@
-
 #define SFML_STATIC
 
 #include <SFML/Graphics.hpp>
@@ -9,6 +8,8 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <set>
+#include <algorithm>
 
 std::mt19937 rnd(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 float rnd01() {
@@ -137,6 +138,10 @@ public:
 	void clearVelocity() {
 		velocity = { 0.f, 0.f };
 	}
+
+	int getNum() {
+		return std::stoi(str);
+	}
 };
 
 class Edge : public sf::Drawable {
@@ -145,7 +150,7 @@ private:
 	Node* nd2 = nullptr;
 
 	sf::Color col;
-	float size = 0;
+	float size = 3;
 	float optLen = 0;
 	bool alive = true;
 
@@ -195,11 +200,19 @@ public:
 	void setAlive(bool _alive) {
 		alive = _alive;
 	}
+	Node* getFirstNode() {
+		return nd1;
+	}
+	Node* getSecondNode() {
+		return nd2;
+	}
 
 	sf::Color getColor() {
 		return col;
 	}
 };
+
+sf::Color eBaseCol(100, 100, 100);
 
 class Graph : public sf::Drawable {
 private:
@@ -207,11 +220,13 @@ private:
 
 	std::vector <Node*> node;
 	std::vector <Edge*> edge;
+	std::set <std::pair <Node*, Node*>> st;
 	sf::Font font;
 
 	std::vector <std::vector <std::string>> actions;
 	std::vector <std::vector <std::string>> rActions;
 	int curAction = 0;
+	int nodeCnt = 0;
 
 	std::string rAction(const std::string& action) const {
 		std::stringstream ss(action);
@@ -290,7 +305,7 @@ private:
 
 			eg.setSize(3 * scale);
 			eg.setOptLen(200 * scale);
-			eg.setColor({ 100, 100, 100 });
+			eg.setColor(eBaseCol);
 
 			edge.push_back(new Edge(eg));
 		}
@@ -377,7 +392,7 @@ public:
 
 			eg.setSize(3 * scale);
 			eg.setOptLen(200 * scale);
-			eg.setColor({ 100, 100, 100 });
+			eg.setColor(eBaseCol);
 
 			graph.edge.push_back(new Edge(eg));
 		}
@@ -405,6 +420,14 @@ public:
 		}
 		return nullptr;
 	}
+	int getNodeAtPointInd(const sf::Vector2f& point) const {
+		for (int i = 0; i < node.size(); ++i) {
+			if (node[i]->isContains(point)) {
+				return i;
+			}
+		}
+		return -1;
+	}
 
 	bool nextAction(std::istream& is) {
 		if (curAction == actions.size()) {
@@ -430,6 +453,83 @@ public:
 		}
 		return false;
 	}
+
+	void addNode(const sf::Vector2f& pos) {
+		Node nd;
+		nd.setPos(pos);
+		nd.setString(std::to_string(nodeCnt + 1));
+		nd.setScale(1);
+		nd.setSize(std::max(26.f, 9.f));
+		nd.setFillColor({ 50, 50, 50 });
+		nd.setOutlineSize(std::max(4.f, 1.f));
+		nd.setOutlineColor({ 255, 255, 255 });
+		nd.setFont(font);
+		node.push_back(new Node(nd));
+		++nodeCnt;
+	}
+
+	void deleteNode(int ind) {
+		if (ind < 0 || ind >= node.size()) return;
+
+		std::vector <std::pair <Node*, Node*>> del1;
+		std::vector <int> deli;
+		for (int i = edge.size() - 1; i >= 0; --i) {
+			if (edge[i]->getFirstNode() == node[ind] || edge[i]->getSecondNode() == node[ind]) {
+				deli.push_back(i);
+			}
+		}
+		for (auto [f, s] : st) {
+			if (f == node[ind] || s == node[ind]) {
+				del1.push_back({ f, s });
+			}
+		}
+
+		for (auto i : deli) {
+			delete edge[i];
+			edge.erase(edge.begin() + i);
+		}
+		for (auto [f, s] : del1) {
+			st.erase({ f, s });
+		}
+
+		delete node[ind];
+		node.erase(node.begin() + ind);
+	}
+
+	void swapEdge(Node* nd1, Node* nd2) {
+		if (st.count({ nd1, nd2 }) || st.count({ nd2, nd1 })) {
+			st.erase({ nd1, nd2 });
+			st.erase({ nd2, nd1 });
+			for (int i = 0; i < edge.size(); ++i) {
+				if (edge[i]->getFirstNode() == nd1 && edge[i]->getSecondNode() == nd2 || edge[i]->getFirstNode() == nd2 && edge[i]->getSecondNode() == nd1) {
+					edge.erase(edge.begin() + i);
+				}
+			}
+		}
+		else {
+			Edge* eg = new Edge;
+			eg->setFirstNode(nd1);
+			eg->setSecondNode(nd2);
+			eg->setColor(eBaseCol);
+			eg->setOptLen(200);
+			eg->setSize(3);
+			edge.push_back(eg);
+			st.insert({ nd1, nd2 });
+		}
+	}
+
+	void renum() {
+		std::vector <int> nums;
+		for (auto nd : node) {
+			nums.push_back(nd->getNum());
+		}
+		std::sort(nums.begin(), nums.end());
+		nums.resize(std::unique(nums.begin(), nums.end()) - nums.begin());
+		for (auto nd : node) {
+			nd->setString(std::to_string(std::lower_bound(nums.begin(), nums.end(), nd->getNum()) - nums.begin() + 1));
+		}
+		nodeCnt = node.size();
+	}
 };
 
 int main() {
@@ -444,12 +544,18 @@ int main() {
 
 	Graph graph;
 	graph.setFont(font);
-	std::ifstream fin("GraphLog.txt");
-	fin >> graph;
+	//std::ifstream fin("GraphLog.txt");
+	//fin >> graph;
 
 	Node* toMove = nullptr;
 	sf::Vector2f toMovePos0;
 	sf::Vector2f wasMousePos;
+
+	Node* subEdgeStart = nullptr;
+
+
+
+	int actionType = 1;
 
 	sf::Clock clock;
 	while (window.isOpen()) {
@@ -463,29 +569,62 @@ int main() {
 			
 			if (event.type == sf::Event::MouseButtonPressed) {
 				if (event.mouseButton.button == sf::Mouse::Left) {
-					toMove = graph.getNodeAtPoint({ (float)event.mouseButton.x, (float)event.mouseButton.y });
-					if (toMove != nullptr) {
-						toMovePos0 = toMove->getPos();
-						wasMousePos = { (float)event.mouseButton.x, (float)event.mouseButton.y };
+					if (actionType == 0) {
+						toMove = graph.getNodeAtPoint({ (float)event.mouseButton.x, (float)event.mouseButton.y });
+						if (toMove != nullptr) {
+							toMovePos0 = toMove->getPos();
+							wasMousePos = { (float)event.mouseButton.x, (float)event.mouseButton.y };
+						}
+					}
+					if (actionType == 1) {
+						graph.addNode({ (float)event.mouseButton.x, (float)event.mouseButton.y });
+					}
+					if (actionType == 2) {
+						int ind = graph.getNodeAtPointInd(sf::Vector2f({ (float)event.mouseButton.x, (float)event.mouseButton.y }));
+						graph.deleteNode(ind);
+					}
+					if (actionType == 3) {
+						subEdgeStart = graph.getNodeAtPoint({ (float)event.mouseButton.x, (float)event.mouseButton.y });
 					}
 				}
 			}
-
 			if (event.type == sf::Event::MouseButtonReleased) {
 				if (event.mouseButton.button == sf::Mouse::Left) {
 					if (toMove != nullptr) {
 						toMove->clearVelocity();
+						toMove = nullptr;
 					}
-					toMove = nullptr;
+					if (subEdgeStart != nullptr) {
+						Node* nd = graph.getNodeAtPoint({ (float)event.mouseButton.x, (float)event.mouseButton.y });
+						if (nd != nullptr) {
+							graph.swapEdge(subEdgeStart, nd);
+						}
+						subEdgeStart = nullptr;
+					}
 				}
 			}
 
 			if (event.type == sf::Event::KeyPressed) {
-				if (event.key.code == sf::Keyboard::Right) {
+				/*if (event.key.code == sf::Keyboard::Right) {
 					graph.nextAction(fin);
 				}
 				if (event.key.code == sf::Keyboard::Left) {
 					graph.prevAction();
+				}*/
+				if (event.key.code == sf::Keyboard::Num0) {
+					actionType = 0;
+				}
+				if (event.key.code == sf::Keyboard::Num1) {
+					actionType = 1;
+				}
+				if (event.key.code == sf::Keyboard::Num2) {
+					actionType = 2;
+				}
+				if (event.key.code == sf::Keyboard::Num3) {
+					actionType = 3;
+				}
+				if (event.key.code == sf::Keyboard::Num4) {
+					actionType = 4;
 				}
 				if (event.key.code == sf::Keyboard::F12) {
 					sf::Texture tex;
@@ -493,6 +632,9 @@ int main() {
 					tex.update(window);
 					sf::Image im = tex.copyToImage();
 					im.saveToFile("iovsivosnv.png");
+				}
+				if (event.key.code == sf::Keyboard::R) {
+					graph.renum();
 				}
 			}
 		}
@@ -505,10 +647,19 @@ int main() {
 		}
 
 		window.clear(sf::Color(0, 0, 0, 0));
+		if (subEdgeStart != nullptr) {
+			Edge edge;
+			edge.setColor(eBaseCol);
+			edge.setFirstNode(subEdgeStart);
+			Node nd;
+			nd.setPos(sf::Vector2f(sf::Mouse::getPosition()));
+			edge.setSecondNode(&nd);
+			window.draw(edge);
+		}
 		window.draw(graph);
 		window.display();
 	}
 
-	fin.close();
+	//fin.close();
 	return 0;
 }
