@@ -555,7 +555,7 @@ int main() {
 
 
 
-	int actionType = 1;
+	int actionType = 2;
 
 	sf::Clock clock;
 	while (window.isOpen()) {
@@ -569,21 +569,21 @@ int main() {
 			
 			if (event.type == sf::Event::MouseButtonPressed) {
 				if (event.mouseButton.button == sf::Mouse::Left) {
-					if (actionType == 0) {
+					if (actionType == 1) {
 						toMove = graph.getNodeAtPoint({ (float)event.mouseButton.x, (float)event.mouseButton.y });
 						if (toMove != nullptr) {
 							toMovePos0 = toMove->getPos();
 							wasMousePos = { (float)event.mouseButton.x, (float)event.mouseButton.y };
 						}
 					}
-					if (actionType == 1) {
+					if (actionType == 2) {
 						graph.addNode({ (float)event.mouseButton.x, (float)event.mouseButton.y });
 					}
-					if (actionType == 2) {
+					if (actionType == 3) {
 						int ind = graph.getNodeAtPointInd(sf::Vector2f({ (float)event.mouseButton.x, (float)event.mouseButton.y }));
 						graph.deleteNode(ind);
 					}
-					if (actionType == 3) {
+					if (actionType == 4) {
 						subEdgeStart = graph.getNodeAtPoint({ (float)event.mouseButton.x, (float)event.mouseButton.y });
 					}
 				}
@@ -611,9 +611,6 @@ int main() {
 				if (event.key.code == sf::Keyboard::Left) {
 					graph.prevAction();
 				}*/
-				if (event.key.code == sf::Keyboard::Num0) {
-					actionType = 0;
-				}
 				if (event.key.code == sf::Keyboard::Num1) {
 					actionType = 1;
 				}
@@ -657,6 +654,29 @@ int main() {
 			window.draw(edge);
 		}
 		window.draw(graph);
+
+		{
+			sf::Text text;
+			text.setFont(font);
+			if (actionType == 1) {
+				text.setString("cur: move node");
+			}
+			if (actionType == 2) {
+				text.setString("cur: add node");
+			}
+			if (actionType == 3) {
+				text.setString("cur: delete node");
+			}
+			if (actionType == 4) {
+				text.setString("cur: switch edge");
+			}
+			text.setFillColor({ 255, 255, 255 });
+			text.setCharacterSize(30);
+			text.setOutlineThickness(2);
+			text.setOutlineColor({ 50, 50, 50 });
+			window.draw(text);
+		}
+
 		window.display();
 	}
 
