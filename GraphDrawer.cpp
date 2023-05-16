@@ -1,4 +1,4 @@
-#define SFML_STATIC
+﻿#define SFML_STATIC
 
 #include <SFML/Graphics.hpp>
 #include <fstream>
@@ -10,6 +10,7 @@
 #include <iostream>
 #include <set>
 #include <algorithm>
+#include <filesystem>
 
 std::mt19937 rnd(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 float rnd01() {
@@ -216,7 +217,7 @@ sf::Color eBaseCol(100, 100, 100);
 
 class Graph : public sf::Drawable {
 private:
-	float scale;
+	float scale = 1;
 
 	std::vector <Node*> node;
 	std::vector <Edge*> edge;
@@ -365,7 +366,7 @@ public:
 		if (n != 0) {
 			scale = std::min(20.f / n, 1.f);
 		}
-		graph.scale = scale;
+		//graph.scale = scale;
 		for (int i = 0; i < n; ++i) {
 			Node nd;
 
@@ -396,6 +397,8 @@ public:
 
 			graph.edge.push_back(new Edge(eg));
 		}
+
+		graph.nodeCnt = n;
 
 		return is;
 	}
@@ -506,7 +509,7 @@ public:
 				}
 			}
 		}
-		else {
+		else if (nd1 != nd2) {
 			Edge* eg = new Edge;
 			eg->setFirstNode(nd1);
 			eg->setSecondNode(nd2);
@@ -529,6 +532,92 @@ public:
 			nd->setString(std::to_string(std::lower_bound(nums.begin(), nums.end(), nd->getNum()) - nums.begin() + 1));
 		}
 		nodeCnt = node.size();
+	}
+
+	std::string toString() const {
+		std::vector <int> nums;
+		for (auto nd : node) {
+			nums.push_back(nd->getNum());
+		}
+		std::sort(nums.begin(), nums.end());
+		nums.resize(std::unique(nums.begin(), nums.end()) - nums.begin());
+
+		std::string str;
+		str = std::to_string(node.size()) + " " + std::to_string(edge.size()) + "\n";
+		for (auto eg : edge) {
+			str += std::to_string(std::lower_bound(nums.begin(), nums.end(), eg->getFirstNode()->getNum()) - nums.begin() + 1);
+			str += " ";
+			str += std::to_string(std::lower_bound(nums.begin(), nums.end(), eg->getSecondNode()->getNum()) - nums.begin() + 1);
+			str += "\n";
+		}
+
+		return str;
+	}
+};
+
+class SavesMenu {
+private:
+	std::vector <std::string> paths;
+	int curPos = 0;
+	sf::Font font;
+
+public:
+	void reload() {
+		paths.clear();
+		std::filesystem::path path(std::filesystem::current_path().string() + "\\saves\\");
+		for (const auto& dir : std::filesystem::directory_iterator(path)) {
+			std::string s = dir.path().filename().string();
+			if (s.substr(s.size() - 4) == ".txt") {
+				paths.push_back(s.substr(0, s.size() - 4));
+			}
+		}
+		sort(paths.begin(), paths.end());
+	}
+
+	SavesMenu() {
+		reload();
+	}
+
+	void movePos(int val) {
+		curPos += val;
+		curPos = std::max(std::min(curPos, (int)paths.size()), 0);
+	}
+
+	void setFont(const sf::Font& _font) {
+		font = _font;
+	}
+
+	void draw(sf::RenderWindow& window) {
+		sf::Text text;
+		text.setFont(font);
+		std::string str;
+		for (int i = -2; i <= std::min(2, (int)paths.size() - curPos - 1); ++i) {
+			if (i == 0) {
+				str += "> " + paths[curPos];
+			}
+			else if (curPos + i >= 0) {
+				str += paths[curPos + i];
+			}
+			str += '\n';
+		}
+		text.setString(str);
+		text.setFillColor({ 255, 255, 255 });
+		text.setCharacterSize(30);
+		text.setOutlineThickness(2);
+		text.setOutlineColor({ 50, 50, 50 });
+		window.draw(text);
+	}
+
+	void loadGraph(Graph& graph) {
+		if (!paths.empty()) {
+			std::ifstream fin("saves\\" + paths[curPos] + ".txt");
+			fin >> graph;
+		}
+	}
+
+	void saveGraph(const Graph& graph, const std::string& saveName) {
+		std::ofstream fout("saves\\" + saveName + ".txt");
+		fout << graph.toString();
 	}
 };
 
@@ -553,9 +642,22 @@ int main() {
 
 	Node* subEdgeStart = nullptr;
 
+	if (!std::filesystem::exists(std::filesystem::current_path().string() + "\\saves\\")) {
+		std::filesystem::create_directory(std::filesystem::current_path().string() + "\\saves\\");
+	}
+
 
 
 	int actionType = 2;
+
+	
+	SavesMenu menu;
+	menu.setFont(font);
+	bool menuActive = false;
+
+	std::string inpStr;
+	bool inpActive = false;
+	
 
 	sf::Clock clock;
 	while (window.isOpen()) {
@@ -603,6 +705,19 @@ int main() {
 					}
 				}
 			}
+			
+			if (event.type == sf::Event::TextEntered) {
+				if (inpActive) {
+					if ((char)event.text.unicode == '\b') {
+						if (!inpStr.empty()) {
+							inpStr.pop_back();
+						}
+					}
+					else {
+						inpStr += (char)event.text.unicode;
+					}
+				}
+			}
 
 			if (event.type == sf::Event::KeyPressed) {
 				/*if (event.key.code == sf::Keyboard::Right) {
@@ -611,27 +726,64 @@ int main() {
 				if (event.key.code == sf::Keyboard::Left) {
 					graph.prevAction();
 				}*/
-				if (event.key.code == sf::Keyboard::Num1) {
+				if (event.key.code == sf::Keyboard::Num1 && !inpActive) {
 					actionType = 1;
 				}
-				if (event.key.code == sf::Keyboard::Num2) {
+				if (event.key.code == sf::Keyboard::Num2 && !inpActive) {
 					actionType = 2;
 				}
-				if (event.key.code == sf::Keyboard::Num3) {
+				if (event.key.code == sf::Keyboard::Num3 && !inpActive) {
 					actionType = 3;
 				}
-				if (event.key.code == sf::Keyboard::Num4) {
+				if (event.key.code == sf::Keyboard::Num4 && !inpActive) {
 					actionType = 4;
 				}
-				if (event.key.code == sf::Keyboard::F12) {
+				if (event.key.code == sf::Keyboard::F12 && !inpActive) {
 					sf::Texture tex;
-					tex.create(1920, 1080);
+					tex.create(window.getSize().x, window.getSize().y);
 					tex.update(window);
 					sf::Image im = tex.copyToImage();
 					im.saveToFile("iovsivosnv.png");
 				}
-				if (event.key.code == sf::Keyboard::R) {
+				if (event.key.code == sf::Keyboard::R && !inpActive) {
 					graph.renum();
+				}
+				if (event.key.code == sf::Keyboard::M && !inpActive) {
+					menuActive ^= 1;
+				}
+				if (event.key.code == sf::Keyboard::Up && !inpActive) {
+					if (menuActive) {
+						menu.movePos(-1);
+					}
+				}
+				if (event.key.code == sf::Keyboard::Down && !inpActive) {
+					if (menuActive) {
+						menu.movePos(1);
+					}
+				}
+				if (event.key.code == sf::Keyboard::Enter) {
+					if (inpActive) {
+						inpActive = false;
+
+						menu.saveGraph(graph, inpStr);
+						menu.reload();
+
+						inpStr.clear();
+					}
+					else if (menuActive) {
+						menu.loadGraph(graph);
+					}
+				}
+				if (event.key.code == sf::Keyboard::Escape) {
+					if (inpActive) {
+						inpActive = false;
+						inpStr.clear();
+					}
+				}
+				if (event.key.code == sf::Keyboard::S && !inpActive) {
+					if (event.key.control) {
+						inpActive = true;
+					}
 				}
 			}
 		}
@@ -655,7 +807,10 @@ int main() {
 		}
 		window.draw(graph);
 
-		{
+		if (menuActive) {
+			menu.draw(window);
+		}
+		else {
 			sf::Text text;
 			text.setFont(font);
 			if (actionType == 1) {
@@ -670,6 +825,18 @@ int main() {
 			if (actionType == 4) {
 				text.setString("cur: switch edge");
 			}
+			text.setFillColor({ 255, 255, 255 });
+			text.setCharacterSize(30);
+			text.setOutlineThickness(2);
+			text.setOutlineColor({ 50, 50, 50 });
+			window.draw(text);
+		}
+
+		if (inpActive) {
+			sf::Text text;
+			text.setFont(font);
+			text.setString(inpStr);
+			text.setPosition(window.getSize().x / 2.f - text.getGlobalBounds().width / 2.f, window.getSize().y / 2.f - text.getGlobalBounds().height / 2.f);
 			text.setFillColor({ 255, 255, 255 });
 			text.setCharacterSize(30);
 			text.setOutlineThickness(2);
