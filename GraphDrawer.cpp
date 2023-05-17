@@ -783,6 +783,8 @@ int main() {
 				if (event.key.code == sf::Keyboard::S && !inpActive) {
 					if (event.key.control) {
 						inpActive = true;
+						inpStr = "save";
+						while (window.pollEvent(event)) {}
 					}
 				}
 			}
