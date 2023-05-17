@@ -621,6 +621,38 @@ public:
 	}
 };
 
+std::string helpString() {
+	std::string s;
+	s += "Controls:\n";
+	s += "    Help: H\n";
+	s += "    Normalize graph numeration: R\n";
+	s += "    Exit: Alt + F4\n";
+	s += "    Loading menu:\n";
+	s += "        Open/close: M\n";
+	s += "        Move: Up/Down arrows\n";
+	s += "        Load save: Enter\n";
+	s += "    Save graph:\n";
+	s += "	      Ctrl + S, than type save name\n";
+	s += "	      Save: Enter\n";
+	s += "	      Exit: Escape\n";
+	s += "    Actions with graph:\n";
+	s += "	      Move node:\n";
+	s += "	          Activate: 1\n";
+	s += "	          Move nodes with mouse\n";
+	s += "	      Add node:\n";
+	s += "	          Activate: 2\n";
+	s += "	          Add node by mouse click\n";
+	s += "	      Delete node:\n";
+	s += "	          Activate: 3\n";
+	s += "	          Delete node by mouse click\n";
+	s += "	      Switch edge:\n";
+	s += "	          Activate: 4\n";
+	s += "	          Drag edge with mouse\n";
+	s += "	          If edge exists, it will be deleted\n";
+	s += "	          Else, it will be created\n";
+	return s;
+}
+
 int main() {
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
@@ -657,6 +689,8 @@ int main() {
 
 	std::string inpStr;
 	bool inpActive = false;
+
+	bool help = false;
 	
 
 	sf::Clock clock;
@@ -787,6 +821,9 @@ int main() {
 						while (window.pollEvent(event)) {}
 					}
 				}
+				if (event.key.code == sf::Keyboard::H && !inpActive) {
+					help ^= 1;
+				}
 			}
 		}
 
@@ -827,6 +864,23 @@ int main() {
 			if (actionType == 4) {
 				text.setString("cur: switch edge");
 			}
+			text.setFillColor({ 255, 255, 255 });
+			text.setCharacterSize(30);
+			text.setOutlineThickness(2);
+			text.setOutlineColor({ 50, 50, 50 });
+			window.draw(text);
+		}
+
+		{ //controls
+			sf::Text text;
+			text.setFont(font);
+			if (help) {
+				text.setString(helpString());
+			}
+			else {
+				text.setString("Controls:\n    Help: H");
+			}
+			text.setPosition(window.getSize().x * 2.f / 3, 0);
 			text.setFillColor({ 255, 255, 255 });
 			text.setCharacterSize(30);
 			text.setOutlineThickness(2);
